@@ -36,21 +36,39 @@ S = dict(
 
 AGENT_DEFS = {
     "programmer": {"name":"Алекс","role":"Программист","emoji":"💻","color":"#3B82F6",
-        "system":"Ты Алекс — опытный программист в Iview Systems (видеонаблюдение, Израиль). Пишешь код, боты, API. Отвечай на русском. Давай конкретный рабочий код."},
+        "system":"Ты Алекс — опытный программист. Пишешь код на Python, JavaScript, TypeScript и других языках. Создаёшь боты, API, веб-приложения, скрипты автоматизации. Отвечай на русском. Давай конкретный рабочий код с комментариями и объяснением."},
     "designer":   {"name":"Майя","role":"Дизайнер","emoji":"🎨","color":"#8B5CF6",
-        "system":"Ты Майя — UI/UX дизайнер в Iview Systems. Создаёшь макеты, концепции. Отвечай на русском. Описывай детально: цвета, шрифты, компоненты."},
+        "system":"Ты Майя — UI/UX дизайнер. Создаёшь макеты, концепции интерфейсов, брендинг, wireframes. Отвечай на русском. Описывай детально: цвета, шрифты, компоненты, UX-паттерны, accessibility. При необходимости — HTML/CSS код."},
     "sales":      {"name":"Давид","role":"Менеджер продаж","emoji":"💼","color":"#10B981",
-        "system":"Ты Давид — менеджер продаж в Iview Systems. WhatsApp/Telegram с клиентами, скрипты продаж. ВАЖНО: ничего не отправляй без разрешения руководителя."},
-    "accountant": {"name":"Рита","role":"Бухгалтер","emoji":"📊","color":"#F59E0B",
-        "system":"Ты Рита — бухгалтер в Iview Systems. Учёт затрат, ROI, отчёты. Чёткие цифры и таблицы."},
+        "system":"Ты Давид — опытный менеджер продаж. Составляешь скрипты продаж, коммерческие предложения, письма и сообщения клиентам. Отвечай на русском. Будь убедительным, профессиональным и дружелюбным. ВАЖНО: предлагай варианты, окончательное решение за пользователем."},
+    "accountant": {"name":"Рита","role":"Финансовый аналитик","emoji":"📊","color":"#F59E0B",
+        "system":"Ты Рита — финансовый аналитик. Помогаешь с учётом затрат, ROI-анализом, бюджетированием, финансовыми отчётами и расчётами. Отвечай на русском. Давай чёткие цифры, таблицы в markdown, формулы и конкретные рекомендации."},
+    "devops":     {"name":"Макс","role":"DevOps инженер","emoji":"🔧","color":"#06B6D4",
+        "system":"Ты Макс — DevOps инженер. Разбираешься в Docker, Kubernetes, CI/CD (GitHub Actions, GitLab CI), Linux, bash-скриптах, Nginx, облачных сервисах (AWS/GCP/Azure/DigitalOcean), мониторинге (Prometheus, Grafana). Отвечай на русском. Давай конкретные команды, конфиги и пошаговые инструкции."},
+    "researcher": {"name":"Ана","role":"Аналитик и Автор","emoji":"🔍","color":"#EC4899",
+        "system":"Ты Ана — исследователь и автор контента. Помогаешь с анализом данных, написанием статей, SEO-контентом, презентациями, переводами, маркетинговыми текстами. Отвечай на русском. Пиши структурировано, с заголовками и списками, убедительно и интересно."},
 }
 
+# Agent context memory (last 6 messages = 3 exchanges per agent)
+AGENT_MEMORY: dict[str, list] = {k: [] for k in AGENT_DEFS}
+MAX_MEMORY_MSGS = 6
+
+MODELS = {
+    "claude-sonnet-4-6":         {"label":"⚡ Sonnet 4.6 (Рекомендуется)", "cost_in":3.0,  "cost_out":15.0},
+    "claude-haiku-4-5-20251001": {"label":"🚀 Haiku 4.5 (Быстрый/Дешёвый)","cost_in":0.8,  "cost_out":4.0},
+    "claude-opus-4-6":           {"label":"🏆 Opus 4.6 (Максимум качества)","cost_in":15.0, "cost_out":75.0},
+}
+DEFAULT_MODEL = "claude-sonnet-4-6"
+
 DEFAULT_COMMANDS = [
-    {"emoji":"📋","text":"Шаблон ответа клиенту по камерам для WhatsApp"},
-    {"emoji":"💬","text":"Скрипт продаж Iview Systems для Telegram"},
-    {"emoji":"🖼","text":"Концепция UI для личного кабинета клиента"},
-    {"emoji":"📊","text":"Финансовый отчёт по затратам на API за проект"},
-    {"emoji":"❓","text":"Ответ клиенту: хочу камеры в офис, цена?"},
+    {"emoji":"💻","text":"Напиши Python скрипт для автоматизации [опиши задачу]"},
+    {"emoji":"🤖","text":"Создай Telegram бота на Python с aiogram с командами /start и /help"},
+    {"emoji":"🎨","text":"Создай концепцию UI/UX для [опиши приложение]: цвета, шрифты, компоненты"},
+    {"emoji":"📋","text":"Составь профессиональное письмо клиенту о [тема] для WhatsApp/Email"},
+    {"emoji":"📊","text":"Создай таблицу учёта расходов и ROI-анализ для проекта"},
+    {"emoji":"🔧","text":"Напиши Docker Compose файл для [опиши стек: Python/Node/PostgreSQL]"},
+    {"emoji":"🔍","text":"Исследуй тему [тема] и напиши структурированный отчёт с выводами"},
+    {"emoji":"📝","text":"Напиши SEO-статью на тему [тема]: заголовки, структура, ключевые слова"},
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -120,21 +138,25 @@ class AgentWorker(QThread):
     finished = Signal(int, str, int, int, float)
     error    = Signal(int, str)
 
-    def __init__(self, tid, ak, tt, key):
+    def __init__(self, tid, ak, tt, key, model=DEFAULT_MODEL):
         super().__init__()
-        self.tid, self.ak, self.tt, self.key = tid, ak, tt, key
+        self.tid, self.ak, self.tt, self.key, self.model = tid, ak, tt, key, model
 
     def run(self):
         try:
+            # Build messages with agent memory context
+            messages = list(AGENT_MEMORY.get(self.ak, [])[-MAX_MEMORY_MSGS:])
+            messages.append({"role":"user","content":self.tt})
+
             r = requests.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={"Content-Type":"application/json",
                          "x-api-key": self.key,
                          "anthropic-version":"2023-06-01"},
-                json={"model":"claude-sonnet-4-20250514","max_tokens":1024,
+                json={"model": self.model, "max_tokens":4096,
                       "system": AGENT_DEFS[self.ak]["system"],
-                      "messages":[{"role":"user","content":self.tt}]},
-                timeout=60)
+                      "messages": messages},
+                timeout=120)
             d = r.json()
             if r.status_code != 200:
                 self.error.emit(self.tid, d.get("error",{}).get("message","API Error"))
@@ -142,10 +164,16 @@ class AgentWorker(QThread):
             text = d["content"][0]["text"]
             ti   = d.get("usage",{}).get("input_tokens",0)
             to_  = d.get("usage",{}).get("output_tokens",0)
-            cost = (ti*3 + to_*15) / 1_000_000
+            pricing = MODELS.get(self.model, MODELS[DEFAULT_MODEL])
+            cost = (ti * pricing["cost_in"] + to_ * pricing["cost_out"]) / 1_000_000
             DB.update_task(self.tid, text, ti, to_, cost)
+            # Update agent memory
+            AGENT_MEMORY[self.ak].append({"role":"user","content":self.tt})
+            AGENT_MEMORY[self.ak].append({"role":"assistant","content":text})
+            if len(AGENT_MEMORY[self.ak]) > MAX_MEMORY_MSGS:
+                AGENT_MEMORY[self.ak] = AGENT_MEMORY[self.ak][-MAX_MEMORY_MSGS:]
             (CLOUD_DIR/f"task_{self.tid}_{self.ak}.txt").write_text(
-                f"Агент: {AGENT_DEFS[self.ak]['name']}\nЗадача: {self.tt}\n\n{text}",
+                f"Агент: {AGENT_DEFS[self.ak]['name']}\nМодель: {self.model}\nЗадача: {self.tt}\n\n{text}",
                 encoding="utf-8")
             self.finished.emit(self.tid, text, ti, to_, cost)
         except Exception as e:
@@ -187,12 +215,14 @@ class TaskCard(QFrame):
             f"font-size:12px;font-family:Consolas;padding:6px;}}")
         lay.addWidget(rt)
 
+        self._resp_text = resp
         self._br = QHBoxLayout()
         w = QLabel("⚠️  Ожидает вашего разрешения")
         w.setStyleSheet(f"color:{S['amber']};font-size:11px;font-weight:bold;")
         self._br.addWidget(w); self._br.addStretch()
-        self._br.addWidget(self._btn("❌  Отклонить", S['red'],  self._reject))
-        self._br.addWidget(self._btn("✅  Разрешить", S['green'], self._approve))
+        self._br.addWidget(self._btn("📋  Копировать", S['dim'],   self._copy))
+        self._br.addWidget(self._btn("❌  Отклонить",  S['red'],   self._reject))
+        self._br.addWidget(self._btn("✅  Разрешить",  S['green'], self._approve))
         lay.addLayout(self._br)
 
     def _btn(self, t, c, fn):
@@ -202,6 +232,10 @@ class TaskCard(QFrame):
             f"border-radius:5px;font-size:12px;font-weight:bold;padding:0 14px;}}"
             f"QPushButton:hover{{opacity:.85;}}")
         b.clicked.connect(fn); return b
+
+    def _copy(self):
+        from PySide6.QtWidgets import QApplication
+        QApplication.clipboard().setText(self._resp_text)
 
     def _approve(self):
         if self._done: return
@@ -498,20 +532,42 @@ class FloorManager(QDialog):
 
 # ── Settings ──────────────────────────────────────────────────────────────────
 class SettingsDialog(QDialog):
-    def __init__(self, key="", parent=None):
+    def __init__(self, key="", model=DEFAULT_MODEL, parent=None):
         super().__init__(parent); self.setWindowTitle("⚙️  Настройки")
-        self.setFixedSize(480, 200); self.setStyleSheet(DIALOG_STYLE)
+        self.setFixedSize(520, 260); self.setStyleSheet(DIALOG_STYLE)
         lay = QFormLayout(self); lay.setSpacing(14); lay.setContentsMargins(24,24,24,24)
         self.api = QLineEdit(key); self.api.setEchoMode(QLineEdit.Password)
         self.api.setPlaceholderText("sk-ant-api03-...")
         lay.addRow("Anthropic API Key:", self.api)
-        lay.addRow(QLabel("Ключ хранится локально. Получите на console.anthropic.com"))
+        lay.addRow(QLabel("  Ключ хранится локально. Получите на console.anthropic.com"))
+
+        self.model_cb = QComboBox()
+        for mid, minfo in MODELS.items():
+            self.model_cb.addItem(minfo["label"], mid)
+        cur_idx = list(MODELS.keys()).index(model) if model in MODELS else 0
+        self.model_cb.setCurrentIndex(cur_idx)
+        lay.addRow("Модель AI:", self.model_cb)
+
+        pricing = MODELS.get(model, MODELS[DEFAULT_MODEL])
+        self._price_lbl = QLabel(
+            f"  Цена: ${pricing['cost_in']}/M вход · ${pricing['cost_out']}/M выход")
+        self._price_lbl.setStyleSheet(f"color:{S['muted']};font-size:11px;")
+        lay.addRow(self._price_lbl)
+        self.model_cb.currentIndexChanged.connect(self._update_price)
+
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btns.setStyleSheet(f"QPushButton{{background:{S['blue']};color:white;border:none;border-radius:5px;padding:6px 20px;font-size:12px;}}")
         btns.accepted.connect(self.accept); btns.rejected.connect(self.reject)
         lay.addRow(btns)
 
-    def get_key(self): return self.api.text().strip()
+    def _update_price(self):
+        mid = self.model_cb.currentData()
+        pricing = MODELS.get(mid, MODELS[DEFAULT_MODEL])
+        self._price_lbl.setText(
+            f"  Цена: ${pricing['cost_in']}/M вход · ${pricing['cost_out']}/M выход")
+
+    def get_key(self):   return self.api.text().strip()
+    def get_model(self): return self.model_cb.currentData() or DEFAULT_MODEL
 
 
 # ── Reports Tab ───────────────────────────────────────────────────────────────
@@ -583,9 +639,10 @@ class ReportsTab(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Virtual AI Office v4 — Iview Systems")
-        self.setMinimumSize(1300, 880)
+        self.setWindowTitle("Virtual AI Office v5 — AI Агенты для всех 🤖")
+        self.setMinimumSize(1360, 900)
         self._api_key = ""
+        self._model   = DEFAULT_MODEL
         self._workers: dict = {}
         self._commands = self._load_commands()
         self._load_settings()
@@ -596,11 +653,15 @@ class MainWindow(QMainWindow):
     def _load_settings(self):
         p = BASE_DIR/"settings.json"
         if p.exists():
-            try: self._api_key = json.loads(p.read_text()).get("api_key","")
+            try:
+                d = json.loads(p.read_text())
+                self._api_key = d.get("api_key","")
+                self._model   = d.get("model", DEFAULT_MODEL)
             except: pass
 
     def _save_settings(self):
-        (BASE_DIR/"settings.json").write_text(json.dumps({"api_key":self._api_key}))
+        (BASE_DIR/"settings.json").write_text(
+            json.dumps({"api_key":self._api_key,"model":self._model}))
 
     def _load_commands(self):
         if QUICK_FILE.exists():
@@ -638,10 +699,12 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
 
         for txt, col, fn in [
-            ("🏢  Этажи",    S['cyan'],  self._open_floors),
-            ("🎨  Дизайн",   S['purp'],  self._open_design),
-            ("📋  Команды",  S['green'], self._open_commands),
-            ("⚙️  Настройки",S['input'], self._open_settings),
+            ("🏢  Этажи",     S['cyan'],  self._open_floors),
+            ("🎨  Дизайн",    S['purp'],  self._open_design),
+            ("📋  Команды",   S['green'], self._open_commands),
+            ("📤  Экспорт",   S['blue'],  self._export_results),
+            ("🧠  Память",    S['amber'], self._clear_memory),
+            ("⚙️  Настройки", S['input'], self._open_settings),
         ]:
             b = QPushButton(txt); b.setFixedHeight(28)
             b.setStyleSheet(
@@ -680,6 +743,7 @@ class MainWindow(QMainWindow):
             f"border:1px solid {S['border']};selection-background-color:{S['blue']};}}")
         self._combo.addItem("📢  Всем агентам", "all")
         for k,d in AGENT_DEFS.items(): self._combo.addItem(f"{d['emoji']}  {d['name']}", k)
+        self._combo.currentIndexChanged.connect(lambda: self._update_memory_label())
         ll.addWidget(self._combo)
 
         # Quick commands (scrollable list)
@@ -693,15 +757,21 @@ class MainWindow(QMainWindow):
 
         ll.addWidget(self._lbl("Задание:", S['muted'], 11))
         self._ti = QTextEdit()
-        self._ti.setPlaceholderText("Напишите задачу...\n\nАгент выполнит только с вашего разрешения.")
-        self._ti.setMaximumHeight(95)
+        self._ti.setPlaceholderText("Напишите задачу...\n\nAгент выполнит только с вашего разрешения.\n\nCtrl+Enter — отправить")
+        self._ti.setMaximumHeight(100)
         self._ti.setStyleSheet(
             f"QTextEdit{{background:{S['input']};color:{S['text']};"
             f"border:1px solid {S['border']};border-radius:6px;padding:8px;font-size:12px;}}"
             f"QTextEdit:focus{{border-color:{S['blue']};}}")
+        self._ti.installEventFilter(self)
         ll.addWidget(self._ti)
 
-        sb = QPushButton("🚀  Поставить задачу"); sb.setFixedHeight(38)
+        # Memory indicator
+        self._mem_lbl = QLabel("🧠  Память: 0 сообщ.")
+        self._mem_lbl.setStyleSheet(f"color:{S['muted']};font-size:10px;")
+        ll.addWidget(self._mem_lbl)
+
+        sb = QPushButton("🚀  Поставить задачу  [Ctrl+Enter]"); sb.setFixedHeight(38)
         sb.setStyleSheet(
             f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
             f"stop:0 {S['blue']},stop:1 {S['cyan']});color:white;border:none;"
@@ -724,14 +794,35 @@ class MainWindow(QMainWindow):
 
         spl.addWidget(lp); spl.addWidget(rp); spl.setSizes([290, 1010])
 
-        self.statusBar().showMessage("Офис открыт. Нажмите ⚙️ Настройки чтобы ввести Anthropic API ключ.")
+        self.statusBar().showMessage(
+            "🏢 Virtual AI Office v5 — 6 AI агентов готовы к работе! "
+            "Нажмите ⚙️ Настройки чтобы ввести Anthropic API ключ.")
         t = QTimer(self); t.timeout.connect(self._rb); t.start(5000)
+
+    # ── Event filter (Ctrl+Enter) ─────────────────────────────────────────────
+    def eventFilter(self, obj, event):
+        from PySide6.QtCore import QEvent
+        from PySide6.QtGui import QKeyEvent
+        if obj is self._ti and event.type() == QEvent.KeyPress:
+            ke = event
+            if ke.key() == Qt.Key_Return and ke.modifiers() == Qt.ControlModifier:
+                self._send(); return True
+        return super().eventFilter(obj, event)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _lbl(self, text, col, size, bold=False):
         l = QLabel(text)
         l.setStyleSheet(f"color:{col};font-size:{size}px;" + ("font-weight:bold;letter-spacing:1px;" if bold else ""))
         return l
+
+    def _update_memory_label(self):
+        tgt = self._combo.currentData()
+        if tgt == "all":
+            total = sum(len(v) for v in AGENT_MEMORY.values())
+            self._mem_lbl.setText(f"🧠  Память всех агентов: {total} сообщ.")
+        else:
+            n = len(AGENT_MEMORY.get(tgt, []))
+            self._mem_lbl.setText(f"🧠  Память агента: {n} сообщ.")
 
     def _rebuild_quick(self):
         while self._ql.count():
@@ -770,11 +861,41 @@ class MainWindow(QMainWindow):
         dlg = QuickCommandsDialog(self._commands, self); dlg.exec()
         self._commands = dlg.commands; self._save_commands(); self._rebuild_quick()
 
+    def _export_results(self):
+        files = list(CLOUD_DIR.glob("*.txt"))
+        if not files:
+            QMessageBox.information(self,"Экспорт","Нет сохранённых результатов."); return
+        from PySide6.QtWidgets import QFileDialog
+        folder = QFileDialog.getExistingDirectory(self,"Выберите папку для экспорта")
+        if not folder: return
+        import shutil; dest = Path(folder)
+        for f in files: shutil.copy(f, dest/f.name)
+        QMessageBox.information(self,"Экспорт",f"✅ Экспортировано {len(files)} файлов в:\n{folder}")
+        self.statusBar().showMessage(f"✅  Экспортировано {len(files)} результатов.")
+
+    def _clear_memory(self):
+        tgt = self._combo.currentData()
+        if tgt == "all":
+            if QMessageBox.question(self,"Очистить память?",
+                    "Очистить память всех агентов?\nАгенты забудут предыдущие разговоры.") == QMessageBox.Yes:
+                for k in AGENT_MEMORY: AGENT_MEMORY[k].clear()
+                self.statusBar().showMessage("🧠  Память всех агентов очищена.")
+        else:
+            cfg = AGENT_DEFS.get(tgt, {})
+            if QMessageBox.question(self,"Очистить память?",
+                    f"Очистить память агента {cfg.get('name','?')}?") == QMessageBox.Yes:
+                AGENT_MEMORY[tgt].clear()
+                self.statusBar().showMessage(f"🧠  Память {cfg.get('name','?')} очищена.")
+        self._update_memory_label()
+
     def _open_settings(self):
-        dlg = SettingsDialog(self._api_key, self)
+        dlg = SettingsDialog(self._api_key, self._model, self)
         if dlg.exec() == QDialog.Accepted:
-            self._api_key = dlg.get_key(); self._save_settings()
-            self.statusBar().showMessage("✅  Настройки сохранены.")
+            self._api_key = dlg.get_key()
+            self._model   = dlg.get_model()
+            self._save_settings()
+            mname = MODELS.get(self._model,{}).get("label",self._model)
+            self.statusBar().showMessage(f"✅  Настройки сохранены. Модель: {mname}")
 
     # ── Task dispatch ─────────────────────────────────────────────────────────
     def _send(self):
@@ -788,10 +909,12 @@ class MainWindow(QMainWindow):
         for k in targets:
             tid = DB.add_task(k, task); self._launch(tid, k, task)
             self._add_loading(tid, k); self.office.set_working(k)
-        self.statusBar().showMessage(f"Задача отправлена {len(targets)} агентам...")
+        mname = MODELS.get(self._model,{}).get("label",self._model).split("(")[0].strip()
+        self.statusBar().showMessage(
+            f"⚙️  Задача отправлена {len(targets)} агентам [{mname}]...")
 
     def _launch(self, tid, k, task):
-        w = AgentWorker(tid, k, task, self._api_key)
+        w = AgentWorker(tid, k, task, self._api_key, self._model)
         w.finished.connect(self._done); w.error.connect(self._err)
         self._workers[tid] = w; w.start()
 
@@ -837,7 +960,11 @@ class MainWindow(QMainWindow):
             self.office.set_awaiting(k)
             QTimer.singleShot(100, lambda: self._scroll.verticalScrollBar().setValue(
                 self._scroll.verticalScrollBar().maximum()))
-        self.statusBar().showMessage(f"✅  Готово. ${cost:.5f} | {ti+to_} токенов"); self._rb()
+        mem_n = len(AGENT_MEMORY.get(k, []))
+        self.statusBar().showMessage(
+            f"✅  {AGENT_DEFS.get(k,{}).get('name','?')} ответил. "
+            f"${cost:.5f} | {ti+to_} токенов | 🧠 память: {mem_n} сообщ.")
+        self._rb(); self._update_memory_label()
 
     def _err(self, tid, msg):
         k = self._find_remove_loading(tid)
