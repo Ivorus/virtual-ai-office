@@ -31,6 +31,8 @@ AGENT_CFG = {
     "designer":   {"name":"Майя",  "color":"#8B5CF6", "hair":"#B46490"},
     "sales":      {"name":"Давид", "color":"#10B981", "hair":"#5A3C1E"},
     "accountant": {"name":"Рита",  "color":"#F59E0B", "hair":"#3C3229"},
+    "devops":     {"name":"Макс",  "color":"#06B6D4", "hair":"#1E3A5F"},
+    "researcher": {"name":"Ана",   "color":"#EC4899", "hair":"#4A1942"},
 }
 
 ALL_AGENT_KEYS = list(AGENT_CFG.keys())
@@ -359,20 +361,24 @@ class FloorData:
         if self.idx == 0:
             self.agents = list(ALL_AGENT_KEYS)
             default_furn = [
-                ("desk",  60,  90, 90,60, ac,        "ПРОГРАММИСТ"),
-                ("desk",  240, 90, 90,60, "#8B5CF6",  "ДИЗАЙНЕР"),
-                ("desk",  420, 90, 90,60, "#10B981",  "ПРОДАЖИ"),
-                ("desk",  600, 90, 90,60, "#F59E0B",  "БУХГАЛТЕР"),
-                ("coffee_machine",760,55,50,50,"#92400E","КОФЕ"),
-                ("sofa",  50, 340,120,55, "#334155",  "ДИВАН"),
-                ("meeting_table",630,270,120,100,"#4B5563","ПЕРЕГОВОРНАЯ"),
-                ("plant",  8,  40, 30,42, "#166534",  ""),
-                ("plant",  8, 360, 30,42, "#166534",  ""),
-                ("plant",860,  40, 30,42, "#166534",  ""),
-                ("toilet",720,370,50,62, "#475569",  "ТУАЛЕТ 1"),
-                ("toilet",790,370,50,62, "#475569",  "ТУАЛЕТ 2"),
-                ("sink",  720,445,42,36, "#64748B",  ""),
-                ("sink",  790,445,42,36, "#64748B",  ""),
+                ("desk",  35,  90, 88,60, ac,         "ПРОГРАММИСТ"),
+                ("desk",  143, 90, 88,60, "#8B5CF6",  "ДИЗАЙНЕР"),
+                ("desk",  251, 90, 88,60, "#10B981",  "ПРОДАЖИ"),
+                ("desk",  359, 90, 88,60, "#F59E0B",  "БУХГАЛТЕР"),
+                ("desk",  467, 90, 88,60, "#06B6D4",  "ДЕВОПС"),
+                ("desk",  575, 90, 88,60, "#EC4899",  "ИССЛЕДОВАТЕЛЬ"),
+                ("coffee_machine",740,50,50,52,"#92400E","КОФЕ"),
+                ("sofa",  40, 340,130,55, "#334155",  "ДИВАН"),
+                ("meeting_table",610,260,130,105,"#4B5563","ПЕРЕГОВОРНАЯ"),
+                ("plant",  5,  38, 30,42, "#166534",  ""),
+                ("plant",  5, 358, 30,42, "#166534",  ""),
+                ("plant",870,  38, 30,42, "#166534",  ""),
+                ("whiteboard",690,160,80,52,"#1E3A5F","ЗАДАЧИ"),
+                ("server_rack",810,160,50,90,"#1E293F","СЕРВЕРЫ"),
+                ("toilet",720,360,50,62, "#475569",  "ТУАЛЕТ 1"),
+                ("toilet",790,360,50,62, "#475569",  "ТУАЛЕТ 2"),
+                ("sink",  720,432,42,36, "#64748B",  ""),
+                ("sink",  790,432,42,36, "#64748B",  ""),
             ]
         else:
             self.agents = []
@@ -457,7 +463,11 @@ class OfficeScene(QGraphicsView):
 
     # ── Init humans ──────────────────────────────────────────────────────────
     def _init_humans(self):
-        starts = {"programmer":(105,155),"designer":(285,155),"sales":(465,155),"accountant":(645,155)}
+        starts = {
+            "programmer":(85,155),  "designer":(200,155),
+            "sales":(315,155),      "accountant":(430,155),
+            "devops":(545,155),     "researcher":(660,155),
+        }
         for key,(x,y) in starts.items():
             h = Human(key,x,y); h.floor_idx=0; self.humans[key]=h
 
@@ -515,7 +525,8 @@ class OfficeScene(QGraphicsView):
 
     def _desk_pos(self, key):
         labels = {"programmer":"ПРОГРАММИСТ","designer":"ДИЗАЙНЕР",
-                  "sales":"ПРОДАЖИ","accountant":"БУХГАЛТЕР"}
+                  "sales":"ПРОДАЖИ","accountant":"БУХГАЛТЕР",
+                  "devops":"ДЕВОПС","researcher":"ИССЛЕДОВАТЕЛЬ"}
         lbl = labels.get(key,"")
         fl  = self.floors[self.current_floor]
         for pc in fl.pieces:
